@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -21,6 +21,31 @@ function VehicleManagement() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  const [vehicles, setVehicles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+  // Fahrzeuge laden
+  const fetchVehicles = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_URL}/api/vehicles`);
+      if (!response.ok) throw new Error('Fehler beim Laden der Fahrzeuge');
+      const data = await response.json();
+      setVehicles(data);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
 
   const handleAddVehicle = () => {
     setSelectedVehicle(null);
@@ -35,8 +60,9 @@ function VehicleManagement() {
   const handleDeleteVehicle = async (vehicle) => {
     if (window.confirm('Sind Sie sicher, dass Sie dieses Fahrzeug löschen möchten?')) {
       try {
-        // await deleteVehicle(vehicle.id); // Entfernt, da deleteVehicle nicht definiert
+        await deleteVehicle(vehicle.id);
         showSnackbar('Fahrzeug erfolgreich gelöscht', 'success');
+        fetchVehicles(); // Nach Löschen neu laden
       } catch (error) {
         showSnackbar('Fehler beim Löschen des Fahrzeugs', 'error');
         console.error('Error deleting vehicle:', error);
@@ -53,13 +79,14 @@ function VehicleManagement() {
   const handleSubmit = async (vehicleData, images) => {
     try {
       if (selectedVehicle) {
-        // await updateVehicle(selectedVehicle.id, vehicleData); // Entfernt, da updateVehicle nicht definiert
+        await updateVehicle(selectedVehicle.id, vehicleData, images);
         showSnackbar('Fahrzeug erfolgreich aktualisiert');
       } else {
-        // await addVehicle(vehicleData, images); // Entfernt, da addVehicle nicht definiert
+        await addVehicle(vehicleData, images);
         showSnackbar('Fahrzeug erfolgreich hinzugefügt');
       }
       setFormOpen(false);
+      fetchVehicles(); // Nach Hinzufügen/Bearbeiten neu laden
     } catch (error) {
       showSnackbar(error.message || 'Fehler beim Speichern des Fahrzeugs', 'error');
       console.error('Error saving vehicle:', error);
@@ -71,6 +98,90 @@ function VehicleManagement() {
     if (window.confirm('Sind Sie sicher, dass Sie das Formular schließen möchten? Nicht gespeicherte Änderungen gehen verloren.')) {
       setFormOpen(false);
     }
+  };
+
+  // Hilfsfunktionen für Backend-Requests
+  const addVehicle = async (vehicleData, images) => {
+    const formData = new FormData();
+    // Mapping auf snake_case für Backend, fuel_type immer mit Wert
+    const mappedData = {
+      brand: vehicleData.brand,
+      model: vehicleData.model,
+      year: vehicleData.year,
+      price: vehicleData.price,
+      mileage: vehicleData.mileage,
+      fuel_type: vehicleData.fuelType || 'Benzin', // <-- garantiert nie null
+      transmission: vehicleData.transmission,
+      power: vehicleData.power,
+      description: vehicleData.description,
+      status: vehicleData.status,
+      features: vehicleData.features
+    };
+    Object.entries(mappedData).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        formData.append(key, JSON.stringify(value));
+      } else {
+        formData.append(key, value ?? '');
+      }
+    });
+    images.forEach(img => formData.append('images', img));
+
+    const response = await fetch(`${API_URL}/api/vehicles`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Fehler beim Speichern des Fahrzeugs');
+    return await response.json();
+  };
+
+  const updateVehicle = async (id, vehicleData, images) => {
+    const formData = new FormData();
+    // Mapping auf snake_case für Backend, fuel_type immer mit Wert
+    const mappedData = {
+      brand: vehicleData.brand,
+      model: vehicleData.model,
+      year: vehicleData.year,
+      price: vehicleData.price,
+      mileage: vehicleData.mileage,
+      fuel_type: vehicleData.fuelType || 'Benzin', // <-- garantiert nie null
+      transmission: vehicleData.transmission,
+      power: vehicleData.power,
+      description: vehicleData.description,
+      status: vehicleData.status,
+      features: vehicleData.features
+    };
+    Object.entries(mappedData).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        formData.append(key, JSON.stringify(value));
+      } else {
+        formData.append(key, value ?? '');
+      }
+    });
+    images.forEach(img => formData.append('images', img));
+
+    const response = await fetch(`${API_URL}/api/vehicles/${id}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Fehler beim Aktualisieren des Fahrzeugs');
+    return await response.json();
+  };
+
+  const deleteVehicle = async (id) => {
+    const response = await fetch(`${API_URL}/api/vehicles/${id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+    if (!response.ok) throw new Error('Fehler beim Löschen des Fahrzeugs');
+    return await response.json();
   };
 
   return (
@@ -96,8 +207,9 @@ function VehicleManagement() {
       </Box>
 
       <VehicleList
-        vehicles={[]}
-        loading={false}
+        vehicles={vehicles}
+        loading={loading}
+        error={error}
         onEdit={handleEditVehicle}
         onDelete={handleDeleteVehicle}
       />

@@ -41,10 +41,23 @@ function VehicleDetail() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Dummy-Logik: Setze vehicle auf null, um Fehler zu vermeiden
-    setVehicle(null);
-    setLoading(false);
-    setError(null);
+    const fetchVehicle = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${API_URL}/api/vehicles/${id}`);
+        if (!response.ok) throw new Error('Fahrzeug nicht gefunden');
+        const data = await response.json();
+        setVehicle(data);
+      } catch (err) {
+        setError(err.message);
+        setVehicle(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchVehicle();
   }, [id]);
 
   const handleImageClick = (index) => {
@@ -52,9 +65,11 @@ function VehicleDetail() {
     setImageViewerOpen(true);
   };
 
-  const handleInquirySubmit = (e) => {
+  const handleInquirySubmit = async (e) => {
     e.preventDefault();
+    if (!vehicle) return;
     try {
+      // Hier könntest du später einen echten API-Request machen
       const inquiry = {
         id: Date.now(),
         date: new Date().toISOString(),
@@ -71,11 +86,12 @@ function VehicleDetail() {
           price: vehicle.price
         }
       };
-
+      // Optional: Anfrage an Backend senden
+      // await fetch(...)
+      // Lokal speichern (Demo)
       const inquiries = JSON.parse(localStorage.getItem('vehicleInquiries') || '[]');
       inquiries.unshift(inquiry);
       localStorage.setItem('vehicleInquiries', JSON.stringify(inquiries));
-
       setInquiryOpen(false);
       setSnackbarOpen(true);
       setFormData({ name: '', email: '', phone: '', message: '' });
@@ -86,13 +102,8 @@ function VehicleDetail() {
 
   const handleExposeDownload = () => {
     if (!vehicle?.id) return;
-    
-    // URL zum Exposé-Endpunkt direkt definieren
-    const exposeUrl = `http://localhost:3000/api/vehicles/${vehicle.id}/expose`;
-    
-    console.log("Öffne URL:", exposeUrl); // Debugging
-    
-    // Fenster öffnen, um das PDF direkt herunterladen
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const exposeUrl = `${API_URL}/api/vehicles/${vehicle.id}/expose`;
     window.open(exposeUrl, '_blank');
   };
 

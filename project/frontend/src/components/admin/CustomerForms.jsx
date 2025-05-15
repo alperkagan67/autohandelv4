@@ -46,6 +46,8 @@ const statusLabels = {
   abgelehnt: 'Abgelehnt'
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 function ImageWithFallback({ src, alt, onClick, ...props }) {
   const [error, setError] = useState(false)
 
@@ -233,7 +235,7 @@ function CustomerForms() {
     const loadForms = async () => {
       try {
         console.log('Starting to fetch forms...');
-        const response = await fetch('http://localhost:3000/api/customer-forms');
+        const response = await fetch(`${API_URL}/api/customer-forms`);
         console.log('API Response:', response);
         
         if (!response.ok) {
@@ -282,7 +284,7 @@ function CustomerForms() {
 
   const handleStatusChange = async (formId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/customer-forms/${formId}/status`, {
+      const response = await fetch(`${API_URL}/api/customer-forms/${formId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

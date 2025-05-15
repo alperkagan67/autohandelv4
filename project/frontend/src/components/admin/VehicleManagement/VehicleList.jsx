@@ -28,11 +28,7 @@ const statusLabels = {
   sold: 'Verkauft'
 };
 
-function VehicleList({ onEdit, onDelete }) {
-  // const { vehicles = [], loading, error } = useVehicles(); // Entfernt
-  const vehicles = [];
-  const loading = false;
-  const error = null;
+function VehicleList({ vehicles = [], loading = false, error = null, onEdit, onDelete }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [snackbarOpen, setSnackbarOpen] = useState(false);

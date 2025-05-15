@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Container, Typography, Grid, Box, TextField,
     InputAdornment, MenuItem, FormControl,
@@ -15,11 +15,30 @@ const sortOptions = [
 ];
 
 function VehicleList() {
-    const vehicles = [];
-    const loading = false;
-    const error = null;
+    const [vehicles, setVehicles] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('price_asc');
+
+    useEffect(() => {
+        const fetchVehicles = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                const response = await fetch(`${API_URL}/api/vehicles`);
+                if (!response.ok) throw new Error('Fehler beim Laden der Fahrzeuge');
+                const data = await response.json();
+                setVehicles(data);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchVehicles();
+    }, []);
 
     if (loading) return <div>Laden...</div>;
     if (error) return <div>Error: {error}</div>;

@@ -21,8 +21,8 @@ export function authenticateJWT(req, res, next) {
 
 export function loginHandler(req, res) {
   const { username, password } = req.body;
-  const adminUsername = 'root';
-  const adminPassword = '123456';
+  const adminUsername = process.env.ADMIN_USERNAME || 'root';
+  const adminPassword = process.env.ADMIN_PASSWORD || '123456';
   if (username === adminUsername && password === adminPassword) {
     const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '24h' });
     res.status(200).json({ token, user: { username, role: 'admin' } });
