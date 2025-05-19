@@ -26,7 +26,7 @@ const uploadDir = path.join(projectRoot, 'uploads', 'vehicles');
 
 // CORS Konfiguration
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://frontendkfz.s3-website.eu-central-1.amazonaws.com'],
+    origin: ['http://3.69.65.53'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
