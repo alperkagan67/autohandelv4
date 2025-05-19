@@ -75,7 +75,104 @@ Ein modernes Fahrzeughandels-Portal mit Admin-Dashboard und Kundenbereich.
 - [x] DarkMode Addet!
 - [x] Some Bug Fixing
 
+#################################################
 
+## Praxisbeispiel: Lokale Entwicklung und spätere Cloud-Migration
+
+Im Rahmen der Entwicklung wurde das gesamte System zunächst vollständig lokal entwickelt und implementiert. Erst nach Abschluss der lokalen Entwicklungsphase erfolgte die Migration in die AWS-Cloud.
+
+### Tag 1: Grundlegende Funktionalitäten
+- [x] Benutzeroberfläche mit React und Material-UI erweitern
+- [x] Buttons für Kernfunktionen hinzufügen
+- [x] Formular-Validierung implementieren
+- [x] Responsive Design verbessern
+
+### Tag 2: Authentifizierung & Sicherheit
+- [x] JWT-Authentifizierung für Admin-Bereich einrichten
+- [x] Token-Validierung im Backend implementieren
+- [x] Geschützte Routen definieren
+- [x] Login-System testen und optimieren
+
+### Tag 3: Datenbankoptimierung
+- [x] Datenbankschema anpassen und erweitern
+- [x] Neue Tabellen für erweiterte Funktionen anlegen
+- [x] Beziehungen zwischen Tabellen optimieren
+- [x] Datenmigrationsscripts erstellen
+
+### Tag 4: Exposé-System Version 1
+- [x] Grundlegende Exposé-Generierung implementieren
+- [x] PDF-Export für Exposés einrichten
+- [x] Layout und Design der PDFs gestalten
+- [x] Bildintegration in PDFs umsetzen
+
+### Tag 5: Lokale KI-Integration
+- [x] Ollama für lokale Exposé-Generierung einrichten
+- [x] Testumgebung für KI-Funktionen schaffen
+- [x] Prompt-Engineering für Fahrzeugbeschreibungen
+- [x] Fallback-Mechanismen implementieren
+
+### Tag 6: Exposé-System Version 2
+- [x] Anthropic Claude API lokal anbinden
+- [x] Verbesserte Prompt-Templates entwickeln
+- [x] Fehlerbehandlung für API-Ausfälle
+- [x] A/B-Testing zwischen Ollama und Claude
+
+### Tag 7: Bildverwaltung & Optimierung
+- [x] Lokales Bildupload-System verbessern
+- [x] Bildkomprimierung implementieren
+- [x] Lazy Loading für Bilder einrichten
+- [x] Bildergalerie-Komponente optimieren
+
+### Tag 8: Fehlerbehandlung & Logging
+- [x] Umfassendes Logging-System implementieren
+- [x] Fehlerbehandlung für alle Komponenten
+- [x] Benutzerfreundliche Fehlermeldungen
+- [x] Debugging-Tools integrieren
+
+### Tag 9: Performance-Optimierung
+- [x] Frontend-Bundle optimieren
+- [x] API-Caching einrichten
+- [x] Datenbank-Abfragen verbessern
+- [x] Ladezeiten reduzieren
+
+### Tag 10: AWS-Konto & Grundkonfiguration
+- [x] AWS-Konto einrichten
+- [x] IAM-Benutzer mit eingeschränkten Rechten erstellen
+- [x] Security-Best-Practices implementieren
+- [x] AWS CLI konfigurieren
+
+### Tag 11: EC2-Instanz Einrichtung
+- [x] EC2-Instanz für Backend erstellen
+- [x] Security Groups konfigurieren
+- [x] SSH-Zugang einrichten
+- [x] Node.js und PM2 installieren
+
+### Tag 12: S3-Bucket & RDS-Datenbank
+- [x] S3-Bucket für Fahrzeugbilder erstellen
+- [x] RDS-Instanz mit PostgreSQL aufsetzen
+- [x] Datenbank-Schema migrieren
+- [x] Verbindungen testen und optimieren
+
+### Tag 13: Cloud-Migration
+- [x] Bildupload von lokaler Speicherung auf S3 umstellen
+- [x] Datenbank von lokal auf RDS migrieren
+- [x] API-Endpunkte anpassen
+- [x] Umgebungsvariablen für Cloud-Umgebung konfigurieren
+
+### Tag 14: Cloud KI-Integration
+- [x] Anthropic Claude API in der Cloud anbinden
+- [x] API-Key-Management einrichten
+- [x] Skalierbarkeit der KI-Anfragen sicherstellen
+- [x] Kostenoptimierung implementieren
+
+### Tag 15: Zukunftssicherung & Dokumentation
+- [x] AWS Bedrock-Integration vorbereiten
+- [x] Architektur für zukünftige Erweiterungen dokumentieren
+- [x] Deployment-Prozess automatisieren
+- [x] Umfassende Dokumentation erstellen
+
+Dieses Praxisbeispiel zeigt den typischen Entwicklungsprozess: Zunächst wurde die gesamte Anwendung lokal entwickelt und getestet, einschließlich der Integration lokaler KI-Lösungen (Ollama) und später Anthropic Claude für verbesserte Exposé-Generierung. Erst nach vollständiger lokaler Implementierung erfolgte die Migration in die AWS-Cloud mit entsprechenden Anpassungen für S3, RDS und Cloud-basierte KI-Dienste.
+##########################################
 
 ## Projektstruktur
 
@@ -96,6 +193,9 @@ projekt/
     ├── index.js
     └── package.json
 ```
+
+
+
 
 ## Hauptfunktionen
 

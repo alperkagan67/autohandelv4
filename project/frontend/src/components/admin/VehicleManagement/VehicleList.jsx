@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useVehicles } from '../../../hooks/useVehicles';
+// import { useVehicles } from '../../../hooks/useVehicles'; // Entfernt
 import {
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Paper, IconButton, Chip, TablePagination, Typography, Box,
@@ -11,8 +11,10 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import LaunchIcon from '@mui/icons-material/Launch';
-import { formatCurrency } from '../../../utils/formatters';
+// import { formatCurrency } from '../../../utils/formatters'; // Entfernt
 import ImageViewer from '../../shared/ImageViewer';
+
+function formatCurrency(value) { return value + ' €'; }
 
 const statusColors = {
   available: 'success',
@@ -26,8 +28,7 @@ const statusLabels = {
   sold: 'Verkauft'
 };
 
-function VehicleList({ onEdit, onDelete }) {
-  const { vehicles = [], loading, error } = useVehicles();
+function VehicleList({ vehicles = [], loading = false, error = null, onEdit, onDelete }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [snackbarOpen, setSnackbarOpen] = useState(false);

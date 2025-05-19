@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -21,23 +21,45 @@ const TRANSMISSION_TYPES = ['Automatik', 'Schaltgetriebe'];
 const STATUS_OPTIONS = ['available', 'reserved', 'sold'];
 
 function VehicleForm({ vehicle, onSubmit, onCancel }) {
-  const [formData, setFormData] = useState(vehicle || {
-    brand: '',
-    model: '',
-    year: '',
-    price: '',
-    mileage: '',
-    fuelType: '',
-    transmission: '',
-    power: '',
-    description: '',
-    features: [],
-    images: [],
-    status: 'available'
-  });
+  const initialFormData = {
+    brand: vehicle?.brand || '',
+    model: vehicle?.model || '',
+    year: vehicle?.year || '',
+    price: vehicle?.price || '',
+    mileage: vehicle?.mileage || '',
+    fuelType: vehicle?.fuelType || 'Benzin',
+    transmission: vehicle?.transmission || '',
+    power: vehicle?.power || '',
+    description: vehicle?.description || '',
+    features: Array.isArray(vehicle?.features)
+      ? vehicle.features
+      : (typeof vehicle?.features === 'string' && vehicle.features ? vehicle.features.split(',') : []),
+    images: vehicle?.images || [],
+    status: vehicle?.status || 'available'
+  };
+  const [formData, setFormData] = useState(initialFormData);
   const [newFeature, setNewFeature] = useState('');
   const [error, setError] = useState(null);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+
+  useEffect(() => {
+    setFormData({
+      brand: vehicle?.brand || '',
+      model: vehicle?.model || '',
+      year: vehicle?.year || '',
+      price: vehicle?.price || '',
+      mileage: vehicle?.mileage || '',
+      fuelType: vehicle?.fuelType || 'Benzin',
+      transmission: vehicle?.transmission || '',
+      power: vehicle?.power || '',
+      description: vehicle?.description || '',
+      features: Array.isArray(vehicle?.features)
+        ? vehicle.features
+        : (typeof vehicle?.features === 'string' && vehicle.features ? vehicle.features.split(',') : []),
+      images: vehicle?.images || [],
+      status: vehicle?.status || 'available'
+    });
+  }, [vehicle]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -103,12 +125,10 @@ function VehicleForm({ vehicle, onSubmit, onCancel }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     try {
       if (!validateForm()) {
         return;
       }
-
       // Prepare vehicle data
       const vehicleData = {
         brand: formData.brand,
@@ -123,23 +143,19 @@ function VehicleForm({ vehicle, onSubmit, onCancel }) {
         status: formData.status,
         features: formData.features
       };
-
-      console.log('Submitting vehicle data:', vehicleData);
-      console.log('Images to upload:', formData.images);
-
+      // Nur neue Bilder (File-Objekte) hochladen
+      const newImages = formData.images.filter(img => img instanceof File);
       // Call parent onSubmit with prepared data
-      await onSubmit(vehicleData, formData.images);
-      
+      await onSubmit(vehicleData, newImages);
       setSnackbarOpen(true);
-      // Reset form after successful submission
-      if (!vehicle) { // Only reset if it's a new vehicle
+      if (!vehicle) {
         setFormData({
           brand: '',
           model: '',
           year: '',
           price: '',
           mileage: '',
-          fuelType: '',
+          fuelType: 'Benzin',
           transmission: '',
           power: '',
           description: '',

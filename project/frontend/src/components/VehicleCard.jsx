@@ -13,7 +13,8 @@ import LocalGasStationIcon from '@mui/icons-material/LocalGasStation'
 import SpeedIcon from '@mui/icons-material/Speed'
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday'
 import BrokenImageIcon from '@mui/icons-material/BrokenImage'
-import { formatCurrency } from '../utils/formatters'
+
+function formatCurrency(value) { return value + ' €'; }
 
 function VehicleCard({ vehicle }) {
     const getImageUrl = (image) => {

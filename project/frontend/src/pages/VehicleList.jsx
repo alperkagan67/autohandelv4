@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Container, Typography, Grid, Box, TextField,
     InputAdornment, MenuItem, FormControl,
@@ -6,7 +6,6 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import VehicleCard from '../components/VehicleCard';
-import { useVehicles } from '../hooks/useVehicles';
 
 const sortOptions = [
     { value: 'price_asc', label: 'Preis aufsteigend' },
@@ -16,20 +15,34 @@ const sortOptions = [
 ];
 
 function VehicleList() {
-    const { vehicles = [], loading, error } = useVehicles();
+    const [vehicles, setVehicles] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState('price_asc');
 
+    useEffect(() => {
+        const fetchVehicles = async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                const response = await fetch(`${API_URL}/api/vehicles`);
+                if (!response.ok) throw new Error('Fehler beim Laden der Fahrzeuge');
+                const data = await response.json();
+                setVehicles(data);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchVehicles();
+    }, []);
+
     if (loading) return <div>Laden...</div>;
     if (error) return <div>Error: {error}</div>;
-/*************  ✨ Codeium Command ⭐  *************/
-/**
- * A component that displays a list of vehicles. It allows the user to search by brand
- * or model and to sort the list by price, year, or mileage.
- *
- * @returns {React.ReactElement} A React component with a list of vehicles.
- */
-/******  38ca0739-7933-4f49-974b-178de1b5b839  *******/    if (!Array.isArray(vehicles)) return <div>Keine Fahrzeuge verfügbar</div>;
+    if (!Array.isArray(vehicles)) return <div>Keine Fahrzeuge verfügbar</div>;
 
     const filteredVehicles = vehicles
         .filter(vehicle =>

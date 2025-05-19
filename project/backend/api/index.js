@@ -10,6 +10,10 @@ import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import fetch from 'node-fetch';
 import Anthropic from '@anthropic-ai/sdk';
 import puppeteer from 'puppeteer';
+import jwt from 'jsonwebtoken';
+import { loginHandler } from './middlewares/auth.js';
+import morgan from 'morgan';
+import AWS from 'aws-sdk';
 
 // Konfiguration
 dotenv.config();
@@ -22,7 +26,7 @@ const uploadDir = path.join(projectRoot, 'uploads', 'vehicles');
 
 // CORS Konfiguration
 const corsOptions = {
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://frontendkfz.s3-website.eu-central-1.amazonaws.com'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -31,10 +35,37 @@ const corsOptions = {
 
 // Express und Middleware
 const app = express();
-const port = process.env.PORT || 3000;
+app.use(morgan('dev'));
+const port = process.env.PORT || 3001;
+
+// JWT-Konfiguration
+if (!process.env.JWT_SECRET) {
+  console.error('WARNUNG: JWT_SECRET nicht konfiguriert. Bitte in .env-Datei einen sicheren Schlüssel festlegen.');
+}
+const JWT_SECRET = process.env.JWT_SECRET || 'dein-super-geheimer-schluessel-fuer-jwt';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Middleware zur Überprüfung des JWT
+const authenticateJWT = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+
+    if (authHeader) {
+        const token = authHeader.split(' ')[1];
+
+        jwt.verify(token, JWT_SECRET, (err, user) => {
+            if (err) {
+                return res.status(403).json({ error: 'Token ungültig oder abgelaufen' });
+            }
+            req.user = user;
+            next();
+        });
+    } else {
+        res.status(401).json({ error: 'Keine Authentifizierung' });
+    }
+};
 
 // Wichtig: Statisches Verzeichnis korrekt einbinden
 app.use('/uploads/vehicles', express.static(path.join(projectRoot, 'uploads', 'vehicles')));
@@ -47,12 +78,21 @@ if (!fs.existsSync(uploadDir)) {
 
 // PostgreSQL Pool
 const { Pool } = pkg;
+
+// Check for missing DB configuration
+if (!process.env.DB_PASSWORD || process.env.DB_PASSWORD === 'REPLACE_WITH_STRONG_PASSWORD') {
+  console.error('WARNUNG: DB_PASSWORD nicht konfiguriert oder nicht geändert. Bitte in .env-Datei einen sicheren Wert festlegen.');
+}
+
 const pool = new Pool({
-  user: 'postgres',
-  host: 'localhost',
-  database: 'autohandel',
-  password: '123456',
-  port: 5432,
+  user: process.env.DB_USER || 'postgres',
+  host: process.env.DB_HOST || 'localhost',
+  database: process.env.DB_NAME || 'dbkfz',
+  password: process.env.DB_PASSWORD || '12345678',
+  port: process.env.DB_PORT || 5432,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 // Test-Endpunkt für DB-Verbindung
@@ -65,59 +105,62 @@ app.get('/api/db-test', async (req, res) => {
   }
 });
 
+// Admin Login Route
 app.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
+    const adminUsername = process.env.ADMIN_USERNAME || 'root';
+    const adminPassword = process.env.ADMIN_PASSWORD || '123456';
 
-    // Debugging: Logge die empfangenen Daten
-    console.log('Empfangene Daten:', username, password);
+    // Debug-Logging
+    console.log('ENV:', process.env.ADMIN_USERNAME, process.env.ADMIN_PASSWORD);
+    console.log('POST:', username, password);
 
-    const adminUsername = 'root';
-    const adminPassword = '123456';
+    if (!process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
+        console.error('WARNUNG: Admin-Zugangsdaten nicht in Umgebungsvariablen konfiguriert. Verwende unsichere Standardwerte.');
+    }
 
     if (username === adminUsername && password === adminPassword) {
-        const token = 'secure-admin-token';
-        res.status(200).json({ token });
+        const token = jwt.sign(
+            {
+                username: username,
+                role: 'admin'
+            },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN }
+        );
+
+        res.status(200).json({
+            token,
+            user: {
+                username,
+                role: 'admin'
+            }
+        });
     } else {
         res.status(401).json({ error: 'Ungültige Zugangsdaten' });
     }
 });
 
-// Multer Konfiguration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        cb(null, uniqueSuffix + ext);
-    }
+// Geschützte Admin-Route für Profil
+app.get('/api/admin/profile', authenticateJWT, (req, res) => {
+    res.json({ user: req.user });
 });
 
-const fileFilter = (req, file, cb) => {
-    console.log('Prüfe Datei:', file.originalname, file.mimetype);
-    if (file.mimetype.startsWith('image/')) {
-        cb(null, true);
-    } else {
-        console.log('Ungültiger Dateityp:', file.mimetype);
-        cb(new Error('Nur Bilddateien sind erlaubt!'), false);
-    }
-};
-
-const upload = multer({
-    storage: storage,
-    fileFilter: fileFilter,
-    limits: { 
-        fileSize: 5 * 1024 * 1024, // 5MB
-        files: 10 // Maximal 10 Bilder pro Upload
-    }
+// AWS S3 Konfiguration
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
 });
+const S3_BUCKET = process.env.S3_BUCKET_NAME;
+const S3_FOLDER = process.env.S3_BUCKET_FOLDER || '';
+
+// Multer Konfiguration (nur im RAM, nicht auf Platte)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 // DELETE Fahrzeug
-app.delete('/api/vehicles/:id', async (req, res) => {
+app.delete('/api/vehicles/:id', authenticateJWT, async (req, res) => {
     const { id } = req.params;
     const client = await pool.connect();
     try {
@@ -142,6 +185,7 @@ app.delete('/api/vehicles/:id', async (req, res) => {
 
 // Alle Fahrzeuge abrufen
 app.get('/api/vehicles', async (req, res) => {
+    console.log(req.body);
     try {
         const { rows } = await pool.query(`
             SELECT v.*, 
@@ -153,11 +197,18 @@ app.get('/api/vehicles', async (req, res) => {
             GROUP BY v.id
             ORDER BY v.created_at DESC
         `);
+        console.log(rows);
         const vehicles = rows.map(vehicle => ({
             ...vehicle,
             features: vehicle.features ? vehicle.features.split(',') : [],
-            images: vehicle.images ? vehicle.images.split(',').map(url => `http://localhost:${port}${url}`) : []
+            images: vehicle.images ? vehicle.images.split(',').map(url => {
+                if (url.startsWith('http')) return url;
+                // Get host from request or use a base URL from environment
+                const baseUrl = req.headers.origin || process.env.API_BASE_URL || `http://localhost:${port}`;
+                return `${baseUrl}${url}`;
+            }) : []
         }));
+        console.log(vehicles);
         res.json(vehicles);
     } catch (error) {
         console.error('Error fetching vehicles:', error);
@@ -165,8 +216,15 @@ app.get('/api/vehicles', async (req, res) => {
     }
 });
 
-// Einzelnes Fahrzeug abrufen
+////////////////////////////////////
+
+// hier muss get request auf endpunkt /api/vehicles id angepasst werden in den frontend
+/////////////////////
+
+
+// Einzelnes Fahrzeug abruf
 app.get('/api/vehicles/:id', async (req, res) => {
+    console.log('wir sind grade hier:');
     try {
         const { rows } = await pool.query(`
             SELECT v.*, 
@@ -194,7 +252,9 @@ app.get('/api/vehicles/:id', async (req, res) => {
                     if (trimmedUrl.startsWith('http')) {
                         return trimmedUrl;
                     }
-                    return `http://localhost:${port}${trimmedUrl}`;
+                    // Get host from request or use a base URL from environment
+                    const baseUrl = req.headers.origin || process.env.API_BASE_URL || `http://localhost:${port}`;
+                    return `${baseUrl}${trimmedUrl}`;
                 })
                 : []
         };
@@ -209,11 +269,10 @@ app.get('/api/vehicles/:id', async (req, res) => {
 });
 
 // Fahrzeug erstellen mit Bildupload
-app.post('/api/vehicles', upload.array('images', 10), async (req, res) => {
+app.post('/api/vehicles', authenticateJWT, upload.array('images', 10), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        
         // Detailliertes Logging der empfangenen Daten
         console.log('=== Bildupload Start ===');
         console.log('Request Body:', req.body);
@@ -228,18 +287,37 @@ app.post('/api/vehicles', upload.array('images', 10), async (req, res) => {
             }))
         } : 'Keine Dateien');
 
-        const { brand, model, year, price, mileage, fuelType, transmission, power, description, status } = req.body;
+        // Felder auslesen und korrekt parsen
+        const { brand, model, year, price, mileage, transmission, power, description, status } = req.body;
+        const fuel_type = req.body.fuel_type || req.body.fuelType || 'Benzin';
+        // Features robust parsen (Array oder String)
         let features = [];
-        try {
-            features = JSON.parse(req.body.features || '[]');
-        } catch (e) {
-            console.warn('Could not parse features:', e);
+        if (Array.isArray(req.body.features)) {
+            features = req.body.features;
+        } else if (typeof req.body.features === 'string' && req.body.features.trim() !== '') {
+            try {
+                features = JSON.parse(req.body.features);
+            } catch (e) {
+                // Falls kein JSON, dann als Komma-getrennte Liste behandeln
+                features = req.body.features.split(',').map(f => f.trim()).filter(Boolean);
+            }
         }
 
         // Fahrzeug einfügen
         const vehicleResult = await client.query(
             'INSERT INTO vehicles (brand, model, year, price, mileage, fuel_type, transmission, power, description, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id',
-            [brand, model, year, price, mileage, fuelType, transmission, power, description, status || 'available']
+            [
+                brand,
+                model,
+                year ? parseInt(year) : null,
+                price ? parseFloat(price) : null,
+                mileage ? parseInt(mileage) : null,
+                fuel_type,
+                transmission,
+                power,
+                description,
+                status || 'available'
+            ]
         );
         const vehicleId = vehicleResult.rows[0].id;
         console.log('Fahrzeug erstellt mit ID:', vehicleId);
@@ -258,24 +336,28 @@ app.post('/api/vehicles', upload.array('images', 10), async (req, res) => {
         const savedImages = [];
         if (req.files && req.files.length > 0) {
             console.log(`Speichere ${req.files.length} Bilder in der Datenbank...`);
-            
             for (const [index, file] of req.files.entries()) {
-                const imageUrl = `/uploads/vehicles/${file.filename}`;
-                savedImages.push(imageUrl);
-                
-                console.log(`Bild ${index+1} wird gespeichert:`, {
-                    vehicle_id: vehicleId,
-                    image_url: imageUrl,
-                    sort_order: index,
-                    original_name: file.originalname
-                });
-                
                 try {
+                    // S3-Key bauen
+                    const fileExt = file.originalname.split('.').pop();
+                    const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}.${fileExt}`;
+                    const s3Key = `${S3_FOLDER ? S3_FOLDER + '/' : ''}${fileName}`;
+                    // Upload zu S3
+                    await s3.putObject({
+                        Bucket: S3_BUCKET,
+                        Key: s3Key,
+                        Body: file.buffer,
+                        ContentType: file.mimetype
+                    }).promise();
+                    // S3-URL bauen
+                    const imageUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+                    savedImages.push(imageUrl);
+                    // In DB speichern
                     await client.query(
                         'INSERT INTO vehicle_images (vehicle_id, image_url, sort_order) VALUES ($1, $2, $3)',
                         [vehicleId, imageUrl, index]
                     );
-                    console.log(`Bild ${index+1} erfolgreich in DB gespeichert`);
+                    console.log(`Bild ${index+1} erfolgreich in DB gespeichert:`, imageUrl);
                 } catch (error) {
                     console.error(`Fehler beim Speichern von Bild ${index+1}:`, error);
                     throw error;
@@ -285,17 +367,13 @@ app.post('/api/vehicles', upload.array('images', 10), async (req, res) => {
 
         await client.query('COMMIT');
         console.log('=== Bildupload erfolgreich abgeschlossen ===');
-        
-        // Vollständige Antwort mit Details
-        const response = {
+        // Rückgabe: S3-URLs direkt
+        res.status(201).json({
             message: 'Vehicle created successfully',
             id: vehicleId,
-            images: savedImages.map(img => `http://localhost:${port}${img}`),
+            images: savedImages,
             imageCount: savedImages.length
-        };
-        console.log('Sende Antwort:', response);
-        res.status(201).json(response);
-        
+        });
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Fehler beim Bildupload:', error);
@@ -309,28 +387,47 @@ app.post('/api/vehicles', upload.array('images', 10), async (req, res) => {
 });
 
 // Fahrzeug aktualisieren
-app.put('/api/vehicles/:id', upload.array('images', 10), async (req, res) => {
+app.put('/api/vehicles/:id', authenticateJWT, upload.array('images', 10), async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         const vehicleId = req.params.id;
-        const { brand, model, year, price, mileage, fuelType, transmission, power, description, status } = req.body;
+        const { brand, model, year, price, mileage, transmission, power, description, status } = req.body;
+        const fuel_type = req.body.fuel_type || req.body.fuelType;
         let features = [];
-        try {
-            features = JSON.parse(req.body.features || '[]');
-        } catch (e) {
-            console.warn('Could not parse features:', e);
+        if (Array.isArray(req.body.features)) {
+            features = req.body.features;
+        } else if (typeof req.body.features === 'string' && req.body.features.trim() !== '') {
+            try {
+                features = JSON.parse(req.body.features);
+            } catch (e) {
+                features = req.body.features.split(',').map(f => f.trim()).filter(Boolean);
+            }
         }
-        // Update vehicle data
+        // Pflichtfeld-Validierung
+        if (!brand || !model || !year || !price || !mileage) {
+            throw new Error('Pflichtfelder fehlen!');
+        }
         await client.query(
             `UPDATE vehicles 
              SET brand = $1, model = $2, year = $3, price = $4, mileage = $5, 
                  fuel_type = $6, transmission = $7, power = $8, description = $9, 
                  status = $10
              WHERE id = $11`,
-            [brand, model, year, price, mileage, fuelType, transmission, power, description, status || 'available', vehicleId]
+            [
+                brand,
+                model,
+                year ? parseInt(year) : null,
+                price ? parseFloat(price) : null,
+                mileage ? parseInt(mileage) : null,
+                fuel_type,
+                transmission,
+                power,
+                description,
+                status || 'available',
+                vehicleId
+            ]
         );
-        // Update features
         await client.query('DELETE FROM vehicle_features WHERE vehicle_id = $1', [vehicleId]);
         if (features.length > 0) {
             for (const feature of features) {
@@ -340,34 +437,37 @@ app.put('/api/vehicles/:id', upload.array('images', 10), async (req, res) => {
                 );
             }
         }
-        // Handle new images
+        // Neue Bilder zu S3 hochladen
+        const savedImages = [];
         if (req.files && req.files.length > 0) {
             for (const [index, file] of req.files.entries()) {
-                await client.query(
-                    'INSERT INTO vehicle_images (vehicle_id, image_url, sort_order) VALUES ($1, $2, $3)',
-                    [vehicleId, `/uploads/vehicles/${file.filename}`, index]
-                );
+                try {
+                    const fileExt = file.originalname.split('.').pop();
+                    const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}.${fileExt}`;
+                    const s3Key = `${S3_FOLDER ? S3_FOLDER + '/' : ''}${fileName}`;
+                    await s3.putObject({
+                        Bucket: S3_BUCKET,
+                        Key: s3Key,
+                        Body: file.buffer,
+                        ContentType: file.mimetype
+                    }).promise();
+                    const imageUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+                    savedImages.push(imageUrl);
+                    await client.query(
+                        'INSERT INTO vehicle_images (vehicle_id, image_url, sort_order) VALUES ($1, $2, $3)',
+                        [vehicleId, imageUrl, index]
+                    );
+                } catch (error) {
+                    console.error(`Fehler beim S3-Upload (PUT):`, error);
+                    throw error;
+                }
             }
         }
         await client.query('COMMIT');
-        // Fetch updated vehicle data
-        const { rows: updatedVehicle } = await client.query(`
-            SELECT v.*, 
-                string_agg(vf.feature, ',') as features,
-                string_agg(vi.image_url, ',' ORDER BY vi.sort_order) as images
-            FROM vehicles v
-            LEFT JOIN vehicle_features vf ON v.id = vf.vehicle_id
-            LEFT JOIN vehicle_images vi ON v.id = vi.vehicle_id
-            WHERE v.id = $1
-            GROUP BY v.id
-        `, [vehicleId]);
+        // TODO: Fahrzeugliste im Frontend nachladen
         res.json({
             message: 'Vehicle updated successfully',
-            vehicle: {
-                ...updatedVehicle[0],
-                features: updatedVehicle[0].features ? updatedVehicle[0].features.split(',') : [],
-                images: updatedVehicle[0].images ? updatedVehicle[0].images.split(',') : []
-            }
+            images: savedImages
         });
     } catch (error) {
         await client.query('ROLLBACK');
@@ -386,10 +486,7 @@ app.post('/api/customer-forms', upload.array('images', 10), async (req, res) => 
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        // Debug-Logging
-        console.log('Received body:', req.body);
-        console.log('Received files:', req.files ? req.files.length : 0);
-        // Validate required fields
+        // Pflichtfeld-Validierung
         const requiredFields = [
             'customer_name', 'email', 'phone',
             'vehicle_brand', 'vehicle_model', 'vehicle_year',
@@ -435,19 +532,31 @@ app.post('/api/customer-forms', upload.array('images', 10), async (req, res) => 
             ]
         );
         const formId = result.rows[0].id;
-        console.log('Form inserted with ID:', formId);
-        // Handle image upload
+        // S3-Upload für Bilder
         if (req.files && req.files.length > 0) {
             for (const file of req.files) {
-                await client.query(
-                    'INSERT INTO customer_form_images (form_id, image_url) VALUES ($1, $2)',
-                    [formId, `/uploads/vehicles/${file.filename}`]
-                );
+                try {
+                    const fileExt = file.originalname.split('.').pop();
+                    const fileName = `${Date.now()}-${Math.round(Math.random() * 1E9)}.${fileExt}`;
+                    const s3Key = `${S3_FOLDER ? S3_FOLDER + '/' : ''}${fileName}`;
+                    await s3.putObject({
+                        Bucket: S3_BUCKET,
+                        Key: s3Key,
+                        Body: file.buffer,
+                        ContentType: file.mimetype
+                    }).promise();
+                    const imageUrl = `https://${S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${s3Key}`;
+                    await client.query(
+                        'INSERT INTO customer_form_images (form_id, image_url) VALUES ($1, $2)',
+                        [formId, imageUrl]
+                    );
+                } catch (error) {
+                    console.error('Fehler beim S3-Upload (Kundenformular):', error);
+                    throw error;
+                }
             }
-            console.log('Images saved');
         }
         await client.query('COMMIT');
-        console.log('Transaction committed successfully');
         res.status(201).json({
             success: true,
             message: 'Formular erfolgreich gespeichert',
@@ -456,10 +565,9 @@ app.post('/api/customer-forms', upload.array('images', 10), async (req, res) => 
     } catch (error) {
         await client.query('ROLLBACK');
         console.error('Error in /api/customer-forms:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: 'Server Error',
-            message: error.message,
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            message: error.message
         });
     } finally {
         client.release();
@@ -479,7 +587,7 @@ app.get('/api/customer-forms', async (req, res) => {
         const forms = rows.map(form => ({
             ...form,
             images: form.images ? 
-                form.images.split(',').map(url => `http://localhost:${port}${url}`) : 
+                form.images.split(',').map(url => url.trim()) : 
                 []
         }));
         res.json(forms);
@@ -505,7 +613,7 @@ app.get('/api/customer-forms/:id', async (req, res) => {
         const form = {
             ...rows[0],
             images: rows[0].images ? 
-                rows[0].images.split(',').map(url => `http://localhost:${port}${url}`) : 
+                rows[0].images.split(',').map(url => url.trim()) : 
                 []
         };
         res.json(form);
@@ -580,8 +688,15 @@ async function generateExposeWithAnthropic(vehicleData, features) {
         
         Erstelle einen Text, der diese Vorgaben optimal umsetzt und die visuellen Eindrücke verstärkt.`;
 
+        // Debug-Logging
+        const key = process.env.ANTHROPIC_API_KEY || '';
+        console.log('--- Anthropic API Call ---');
+        console.log('API-Key:', key ? key.slice(0, 4) + '...' + key.slice(-4) : 'NICHT GESETZT');
+        console.log('Modell:', "claude-3-sonnet-20240229");
+        console.log('Prompt:', prompt.slice(0, 300) + '...');
+
         const response = await anthropic.messages.create({
-            model: "claude-3-opus-20240229",
+            model: "claude-3-sonnet-20240229",
             max_tokens: 1800,
             messages: [{
                 role: "user",
@@ -592,6 +707,9 @@ async function generateExposeWithAnthropic(vehicleData, features) {
         return response.content[0].text;
     } catch (error) {
         console.error('Fehler bei der Generierung des Exposés:', error);
+        if (error.response) {
+          console.error('Anthropic-Response:', error.response.data);
+        }
         throw error;
     }
 }
@@ -602,7 +720,7 @@ async function improveVehicleDescription(description, vehicle) {
   try {
     const prompt = `Verbessere die folgende Fahrzeugbeschreibung für ein hochwertiges Premium-Exposé. Schreibe stilistisch ansprechend, klar, emotional und mit Fokus auf Qualität, Exklusivität und Fahrgefühl. Vermeide Wiederholungen, baue aber die wichtigsten Informationen ein. Die Beschreibung soll maximal 120 Wörter lang sein und für anspruchsvolle Kunden attraktiv wirken.\n\nFahrzeug: ${vehicle.brand} ${vehicle.model} (${vehicle.year})\n\nOriginaltext:\n${description}`;
     const response = await anthropic.messages.create({
-      model: "claude-3-opus-20240229",
+      model: "claude-3-sonnet-20240229",
       max_tokens: 400,
       messages: [{ role: "user", content: prompt }]
     });
@@ -614,7 +732,7 @@ async function improveVehicleDescription(description, vehicle) {
 }
 
 // Neues Logo für das Exposé verwenden
-const defaultLogo = 'http://localhost:3000/uploads/pdflogo.png'; // Lokaler Pfad zum neuen PDF-Logo
+const defaultLogo = 'http://localhost:3001/uploads/pdflogo.png'; // Lokaler Pfad zum neuen PDF-Logo
 
 // Hilfsfunktion: HTML-Exposé-Template
 function generateExposeHtml({ vehicle, features, exposeText, imageUrls, logoUrl, improvedDescription }) {
@@ -973,7 +1091,7 @@ function generateExposeHtml({ vehicle, features, exposeText, imageUrls, logoUrl,
         <div class="section" style="background: #f8f9fa; border-radius: 10px; margin: 2rem 0; padding: 2.5rem 2rem 2rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.04);">
             <h2 style="font-size:2em; font-family:'Playfair Display',serif; color:#1a365d; text-align:center; margin-bottom:1.5rem;">Originale Fahrzeugbeschreibung</h2>
             <blockquote style="font-style:italic; color:#444; border-left:4px solid #c9a55c; margin:0 auto; max-width:800px; background:rgba(255,255,255,0.7); padding:1.2em 2em;">
-                <span style="font-size:1.15em;">„${improvedDescription.replace(/([\r\n]+)/g, '<br>')}“</span>
+                <span style="font-size:1.15em;">"${improvedDescription.replace(/([\r\n]+)/g, '<br>')}"</span>
             </blockquote>
         </div>
         ` : ''}
@@ -1099,11 +1217,17 @@ app.get('/api/vehicles/:id/expose', async (req, res) => {
       ? vehicle.features.split(',').filter(f => f && f.trim())
       : [];
     const imageUrls = (typeof vehicle.images === 'string' && vehicle.images)
-      ? vehicle.images.split(',').filter(f => f && f.trim()).map(url => `http://localhost:${port}${url}`)
+      ? vehicle.images.split(',').filter(f => f && f.trim()).map(url => url.trim())
       : [];
     const logoUrl = 'https://kfz-abaci.de/wp-content/uploads/2023/11/Logo-KFZ-Abaci.png';
     // Exposé-Text generieren
-    const exposeText = await generateExposeWithAnthropic(vehicle, features || []);
+    let exposeText = '';
+    try {
+      exposeText = await generateExposeWithAnthropic(vehicle, features || []);
+    } catch (error) {
+      console.error('Anthropic-Fehler, nutze statischen Fallback-Text:', error);
+      exposeText = `# Exposé für ${vehicle.brand} ${vehicle.model} (${vehicle.year})\n\nDieses Fahrzeug überzeugt durch seine Ausstattung, seinen Zustand und seine Einzigartigkeit.\n\n- Marke: ${vehicle.brand}\n- Modell: ${vehicle.model}\n- Baujahr: ${vehicle.year}\n- Kilometerstand: ${vehicle.mileage} km\n- Preis: ${vehicle.price} €\n- Kraftstoff: ${vehicle.fuel_type}\n- Getriebe: ${vehicle.transmission}\n- Leistung: ${vehicle.power}\n\nKontaktieren Sie uns für weitere Informationen!`;
+    }
     // Fahrzeugbeschreibung verbessern (falls vorhanden)
     let improvedDescription = '';
     if (vehicle.description && vehicle.description.trim()) {
@@ -1182,15 +1306,23 @@ const startServer = async () => {
         fs.accessSync(uploadDir, fs.constants.W_OK);
         console.log('Upload directory is writable:', uploadDir);
 
-        // Teste Datenbankverbindung (PostgreSQL-Version)
-        const client = await pool.connect();
-        console.log('Database connection successful');
-        client.release();
+        // Teste Datenbankverbindung (PostgreSQL-Version) - überspringen, wenn DB nicht erreichbar
+        try {
+            const client = await pool.connect();
+            console.log('Database connection successful');
+            client.release();
+        } catch (dbError) {
+            console.warn('Database connection failed, continuing without database:', dbError.message);
+        }
 
         app.listen(port, () => {
             console.log(`Server is running on http://localhost:${port}`);
             console.log('Upload directory:', uploadDir);
             console.log('CORS enabled for:', corsOptions.origin);
+            console.log('Environment:', {
+                DB_HOST: process.env.DB_HOST || 'localhost',
+                DB_PORT: process.env.DB_PORT || 5432
+            });
         });
     } catch (error) {
         console.error('Failed to start server:', error);

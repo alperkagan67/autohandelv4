@@ -17,19 +17,16 @@ import {
   Snackbar
 } from '@mui/material';
 import { useState, useEffect, useCallback } from 'react';
-import { useVehicles } from '../hooks/useVehicles';
-import { UPLOADS_URL, VEHICLES_URL } from '../config/api';
 import ImageViewer from '../components/shared/ImageViewer';
-import { formatCurrency } from '../utils/formatters';
+// import { formatCurrency } from '../utils/formatters'; // Entfernt
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+
+function formatCurrency(value) { return value + ' €'; }
 
 function VehicleDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getVehicle } = useVehicles();
   const [vehicle, setVehicle] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [inquiryOpen, setInquiryOpen] = useState(false);
@@ -40,51 +37,39 @@ function VehicleDetail() {
     phone: '',
     message: ''
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-  const loadVehicle = async () => {
-    if (!id) return;
-    
-    try {
+    const fetchVehicle = async () => {
       setLoading(true);
       setError(null);
-      console.log('Loading vehicle with ID:', id);
-      
-      const data = await getVehicle(id);
-      console.log('Received vehicle data:', data);
-      
-      if (!data) {
-        throw new Error('Fahrzeug nicht gefunden');
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${API_URL}/api/vehicles/${id}`);
+        if (!response.ok) throw new Error('Fahrzeug nicht gefunden');
+        const data = await response.json();
+        setVehicle(data);
+      } catch (err) {
+        setError(err.message);
+        setVehicle(null);
+      } finally {
+        setLoading(false);
       }
-
-      // Ensure images have full URLs
-      if (data.images) {
-        data.images = data.images.map(image => 
-          image.startsWith('http') ? image : `${UPLOADS_URL}/${image.split('/').pop()}`
-        );
-      }
-
-      console.log('Processed image paths:', data.images);
-      setVehicle(data);
-    } catch (err) {
-      console.error('Error loading vehicle:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }; 
-
-    loadVehicle();
-  }, [id, getVehicle]);
+    };
+    fetchVehicle();
+  }, [id]);
 
   const handleImageClick = (index) => {
     setSelectedImageIndex(index);
     setImageViewerOpen(true);
   };
 
-  const handleInquirySubmit = (e) => {
+  const handleInquirySubmit = async (e) => {
     e.preventDefault();
+    if (!vehicle) return;
     try {
+      // Hier könntest du später einen echten API-Request machen
       const inquiry = {
         id: Date.now(),
         date: new Date().toISOString(),
@@ -101,11 +86,12 @@ function VehicleDetail() {
           price: vehicle.price
         }
       };
-
+      // Optional: Anfrage an Backend senden
+      // await fetch(...)
+      // Lokal speichern (Demo)
       const inquiries = JSON.parse(localStorage.getItem('vehicleInquiries') || '[]');
       inquiries.unshift(inquiry);
       localStorage.setItem('vehicleInquiries', JSON.stringify(inquiries));
-
       setInquiryOpen(false);
       setSnackbarOpen(true);
       setFormData({ name: '', email: '', phone: '', message: '' });
@@ -116,13 +102,8 @@ function VehicleDetail() {
 
   const handleExposeDownload = () => {
     if (!vehicle?.id) return;
-    
-    // URL zum Exposé-Endpunkt direkt definieren
-    const exposeUrl = `http://localhost:3000/api/vehicles/${vehicle.id}/expose`;
-    
-    console.log("Öffne URL:", exposeUrl); // Debugging
-    
-    // Fenster öffnen, um das PDF direkt herunterladen
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const exposeUrl = `${API_URL}/api/vehicles/${vehicle.id}/expose`;
     window.open(exposeUrl, '_blank');
   };
 

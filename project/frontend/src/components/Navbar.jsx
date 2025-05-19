@@ -1,8 +1,17 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { AppBar, Toolbar, Button, Typography, Box, Container } from '@mui/material'
 import ThemeToggle from './ThemeToggle'
+import { useAuth } from '../hooks/useAuth.jsx';
 
 function Navbar() {
+    const { user, logout, isAuthenticated } = useAuth();
+    const navigate = useNavigate();
+
+    const handleLogout = () => {
+        logout();
+        navigate('/admin/login');
+    };
+
     return (
         <AppBar position="fixed">
             <Container maxWidth="xl">
@@ -45,6 +54,14 @@ function Navbar() {
                         >
                             Admin
                         </Button>
+                        {isAuthenticated() && user?.role === 'admin' && (
+                            <Button
+                                onClick={handleLogout}
+                                sx={{ color: 'white', ml: 2 }}
+                            >
+                                Logout
+                            </Button>
+                        )}
                         <ThemeToggle />
                     </Box>
                 </Toolbar>
