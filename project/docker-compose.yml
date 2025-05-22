@@ -28,6 +28,8 @@ services:
       - DB_PORT=5432
       - NODE_ENV=production
       - CORS_ORIGIN=http://3.69.65.53
+    networks:
+      - app-network
 
   postgres:
     image: postgres:latest
@@ -39,10 +41,15 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
 
 
+networks:
+  app-network:
+    driver: bridge
 
   #ostgress local in compose löschen
