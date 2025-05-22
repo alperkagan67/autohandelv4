@@ -11,6 +11,8 @@ services:
      - backend
     environment:
       - VITE_API_URL=/api
+    networks:
+      - app-network
 
   backend:
     build:
