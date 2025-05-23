@@ -26,8 +26,8 @@ function VehicleList() {
             setLoading(true);
             setError(null);
             try {
-                const API_URL = import.meta.env.VITE_API_URL || '/api';
-                const response = await fetch(`${API_URL}/vehicles`);
+                const API_URL = 'http://3.69.65.53'
+                const response = await fetch(`${API_URL}/api/vehicles`);
                 if (!response.ok) throw new Error('Fehler beim Laden der Fahrzeuge');
                 const data = await response.json();
                 setVehicles(data);

@@ -25,13 +25,13 @@ function VehicleManagement() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const API_URL = import.meta.env.VITE_API_URL || '/api';
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   // Fahrzeuge laden
   const fetchVehicles = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/vehicles`);
+      const response = await fetch(`${API_URL}/api/vehicles`);
       if (!response.ok) throw new Error('Fehler beim Laden der Fahrzeuge');
       const data = await response.json();
       setVehicles(data);
@@ -126,7 +126,7 @@ function VehicleManagement() {
     });
     images.forEach(img => formData.append('images', img));
 
-    const response = await fetch(`${API_URL}/vehicles`, {
+    const response = await fetch(`${API_URL}/api/vehicles`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -162,7 +162,7 @@ function VehicleManagement() {
     });
     images.forEach(img => formData.append('images', img));
 
-    const response = await fetch(`${API_URL}/vehicles/${id}`, {
+    const response = await fetch(`${API_URL}/api/vehicles/${id}`, {
       method: 'PUT',
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -174,7 +174,7 @@ function VehicleManagement() {
   };
 
   const deleteVehicle = async (id) => {
-    const response = await fetch(`${API_URL}/vehicles/${id}`, {
+    const response = await fetch(`${API_URL}/api/vehicles/${id}`, {
       method: 'DELETE',
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`,

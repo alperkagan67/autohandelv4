@@ -17,7 +17,6 @@ RUN npm run build
 
 # Production Stage
 FROM nginx:alpine
-RUN echo "VITE_API_URL=$VITE_API_URL" > /usr/share/nginx/html/env.txt
 
 # Kopiere die gebaute Anwendung
 COPY --from=build /app/dist /usr/share/nginx/html
