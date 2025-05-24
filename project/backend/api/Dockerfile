@@ -37,6 +37,10 @@ RUN npm install
 # Kopiere den Rest des Codes
 COPY . .
 
+# Erstelle .env Datei
+# RUN echo "MONGODB_URI=mongodb://admin:dein_mongodb_passwort@mongodb:27017/autohandel?authSource=admin" > .env
+COPY .env .env
+
 # Expose Port
 EXPOSE 3001
 

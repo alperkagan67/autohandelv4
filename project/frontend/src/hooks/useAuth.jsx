@@ -1,7 +1,7 @@
 import { useState, useEffect, createContext, useContext } from 'react';
 // import { API_URL } from '../config/api'; // Entfernt
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 const AuthContext = createContext(null);
 
@@ -22,9 +22,14 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+
+
+
+
   const login = async (username, password) => {
     try {
-      const response = await fetch(`${API_URL}/admin/login`, {
+      console.log(process.env.VITE_API_URL);
+      const response = await fetch(`${API_URL}/api/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),

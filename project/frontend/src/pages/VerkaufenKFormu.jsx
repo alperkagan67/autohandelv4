@@ -93,7 +93,7 @@ function VerkaufenKFormu() {
 
       console.log('Sending request to server...');
       
-      const response = await fetch(`${API_URL}/customer-forms`, {
+      const response = await fetch(`${API_URL}/api/customer-forms`, {
         method: 'POST',
         body: submitFormData
       });

@@ -1,4 +1,4 @@
-version: '3.8'
+#version: '3.8'
 
 services:
   frontend:
@@ -6,11 +6,11 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "80:80"
+     - "80:80"
     depends_on:
-      - backend
+     - backend
     environment:
-      - VITE_API_URL=/api
+     - ./frontend/.env.production
     networks:
       - app-network
 
@@ -26,9 +26,10 @@ services:
       - ./backend/api/.env
     environment:
       - PORT=3001
+      - DB_HOST=postgres
+      - DB_PORT=5432
       - NODE_ENV=production
-      - CORS_ORIGIN=http://localhost,http://localhost:5173
-      - API_BASE_URL=http://localhost
+      - CORS_ORIGIN=http://3.69.65.53,http://93.192.132.147
     networks:
       - app-network
 
@@ -39,15 +40,18 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=12345678
-      - POSTGRES_DB=dbkfz
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     networks:
       - app-network
 
 volumes:
   postgres_data:
 
+
 networks:
   app-network:
     driver: bridge
+
+  #ostgress local in compose löschen

@@ -45,8 +45,8 @@ function VehicleDetail() {
       setLoading(true);
       setError(null);
       try {
-        const API_URL = import.meta.env.VITE_API_URL || '/api';
-        const response = await fetch(`${API_URL}/vehicles/${id}`);
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${API_URL}/api/vehicles/${id}`);
         if (!response.ok) throw new Error('Fahrzeug nicht gefunden');
         const data = await response.json();
         setVehicle(data);
@@ -102,8 +102,8 @@ function VehicleDetail() {
 
   const handleExposeDownload = () => {
     if (!vehicle?.id) return;
-    const API_URL = import.meta.env.VITE_API_URL || '/api';
-    const exposeUrl = `${API_URL}/vehicles/${vehicle.id}/expose`;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const exposeUrl = `${API_URL}/api/vehicles/${vehicle.id}/expose`;
     window.open(exposeUrl, '_blank');
   };
 

@@ -25,22 +25,23 @@ const projectRoot = path.resolve(__dirname, '..', '..');
 const uploadDir = path.join(projectRoot, 'uploads', 'vehicles');
 
 // CORS Konfiguration
-const corsOrigin = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-    : ['http://localhost'];
-
 const corsOptions = {
-    origin: corsOrigin,
+    origin: ['http://3.69.65.53'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
     optionsSuccessStatus: 204
 };
 
+    
+
 // Express und Middleware
 const app = express();
 app.use(morgan('dev'));
 const port = process.env.PORT || 3001;
+
+  
+
 
 // JWT-Konfiguration
 if (!process.env.JWT_SECRET) {
@@ -50,8 +51,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dein-super-geheimer-schluessel-fue
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json());
 
 // Middleware zur Überprüfung des JWT
 const authenticateJWT = (req, res, next) => {
@@ -84,6 +84,12 @@ if (!fs.existsSync(uploadDir)) {
 // PostgreSQL Pool
 const { Pool } = pkg;
 
+
+
+
+
+
+
 // Check for missing DB configuration
 if (!process.env.DB_PASSWORD || process.env.DB_PASSWORD === 'REPLACE_WITH_STRONG_PASSWORD') {
   console.error('WARNUNG: DB_PASSWORD nicht konfiguriert oder nicht geändert. Bitte in .env-Datei einen sicheren Wert festlegen.');
@@ -95,7 +101,8 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'dbkfz',
   password: process.env.DB_PASSWORD || '12345678',
   port: process.env.DB_PORT || 5432,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+  ssl: false
+
 });
 
 // Test-Endpunkt für DB-Verbindung

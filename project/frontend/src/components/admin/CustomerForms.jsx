@@ -235,7 +235,7 @@ function CustomerForms() {
     const loadForms = async () => {
       try {
         console.log('Starting to fetch forms...');
-        const response = await fetch(`${API_URL}/customer-forms`);
+        const response = await fetch(`${API_URL}/api/customer-forms`);
         console.log('API Response:', response);
         
         if (!response.ok) {
@@ -284,7 +284,7 @@ function CustomerForms() {
 
   const handleStatusChange = async (formId, newStatus) => {
     try {
-      const response = await fetch(`${API_URL}/customer-forms/${formId}/status`, {
+      const response = await fetch(`${API_URL}/api/customer-forms/${formId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
