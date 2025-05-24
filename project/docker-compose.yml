@@ -10,7 +10,11 @@ services:
     depends_on:
      - backend
     environment:
+<<<<<<< HEAD
      - VITE_API_URL=3.69.65.53/api
+=======
+     - ./frontend/.env.production
+>>>>>>> origin/master
     networks:
       - app-network
 
@@ -20,8 +24,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3001:3001"
+<<<<<<< HEAD
    # depends_on:
     #  - postgres
+=======
+    depends_on:
+      - postgres
+>>>>>>> origin/master
     env_file:
       - ./backend/api/.env
     environment:
@@ -33,6 +42,7 @@ services:
     networks:
       - app-network
 
+<<<<<<< HEAD
  # postgres:
   #  image: postgres:latest
    # ports:
@@ -45,6 +55,20 @@ services:
     #  - POSTGRES_DB=${DB_NAME}
    # networks:
     #  - app-network
+=======
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    networks:
+      - app-network
+>>>>>>> origin/master
 
 volumes:
   postgres_data:
