@@ -84,6 +84,12 @@ if (!fs.existsSync(uploadDir)) {
 // PostgreSQL Pool
 const { Pool } = pkg;
 
+
+
+
+
+
+
 // Check for missing DB configuration
 if (!process.env.DB_PASSWORD || process.env.DB_PASSWORD === 'REPLACE_WITH_STRONG_PASSWORD') {
   console.error('WARNUNG: DB_PASSWORD nicht konfiguriert oder nicht geändert. Bitte in .env-Datei einen sicheren Wert festlegen.');

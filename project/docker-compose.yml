@@ -10,7 +10,7 @@ services:
     depends_on:
      - backend
     environment:
-     - VITE_API_URL=3.69.65.53/api
+     - ./frontend/.env.production
     networks:
       - app-network
 
