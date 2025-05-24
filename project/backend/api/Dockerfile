@@ -38,20 +38,12 @@ RUN npm install
 COPY . .
 
 # Erstelle .env Datei
-<<<<<<< HEAD
-#RUN echo "MONGODB_URI=mongodb://admin:dein_mongodb_passwort@mongodb:27017/autohandel?authSource=admin" > .env
-COPY .env .env
-=======
+
 # RUN echo "MONGODB_URI=mongodb://admin:dein_mongodb_passwort@mongodb:27017/autohandel?authSource=admin" > .env
 COPY .env .env
-
->>>>>>> origin/master
 # Expose Port
 EXPOSE 3001
 
 # Starte die Anwendung
-<<<<<<< HEAD
+
 CMD ["npm", "start"] 
-=======
-CMD ["npm", "start"] 
->>>>>>> origin/master

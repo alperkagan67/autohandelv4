@@ -22,18 +22,8 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-<<<<<<< HEAD
   const login = async (username, password) => {
     try {
-=======
-
-
-
-
-  const login = async (username, password) => {
-    try {
-      console.log(process.env.VITE_API_URL);
->>>>>>> origin/master
       const response = await fetch(`${API_URL}/api/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
