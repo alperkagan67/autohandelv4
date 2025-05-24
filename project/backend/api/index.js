@@ -33,10 +33,15 @@ const corsOptions = {
     optionsSuccessStatus: 204
 };
 
+    
+
 // Express und Middleware
 const app = express();
 app.use(morgan('dev'));
 const port = process.env.PORT || 3001;
+
+  
+
 
 // JWT-Konfiguration
 if (!process.env.JWT_SECRET) {
@@ -79,6 +84,10 @@ if (!fs.existsSync(uploadDir)) {
 // PostgreSQL Pool
 const { Pool } = pkg;
 
+
+
+
+
 // Check for missing DB configuration
 if (!process.env.DB_PASSWORD || process.env.DB_PASSWORD === 'REPLACE_WITH_STRONG_PASSWORD') {
   console.error('WARNUNG: DB_PASSWORD nicht konfiguriert oder nicht geändert. Bitte in .env-Datei einen sicheren Wert festlegen.');
@@ -90,9 +99,8 @@ const pool = new Pool({
   database: process.env.DB_NAME || 'dbkfz',
   password: process.env.DB_PASSWORD || '12345678',
   port: process.env.DB_PORT || 5432,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: false
+
 });
 
 // Test-Endpunkt für DB-Verbindung
